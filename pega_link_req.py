@@ -101,7 +101,8 @@ def pega_eps(link_tupla: tuple):
                         mod[nome] = {}
                     else:
                         if ('span' in map(lambda x: x.name, i.contents) or i.name == 'span') \
-                                and i.text.lower().strip() != 'assistir':
+                                and i.text.lower().strip() != 'assistir' \
+                                and i.text.lower().strip() != '(legendado)':
                             tematu = i.text.strip()
                             temps[tematu] = []
                         if ('episódio' in i.text.lower() or i.name == 'strong') and \
@@ -117,7 +118,7 @@ def pega_eps(link_tupla: tuple):
                             if not (nome in mod.keys()):
                                 mod = dict()
                                 mod[nome] = {}
-                            mod[nome][i.text] = base + i.get('href').replace("%20", ' ').split()[0]
+                            mod[nome][i.text] = base + i.get('href').replace("%20", ' ').replace('[', '').split()[0]
                             if tematu == '':
                                 tematu = str(ini) + " Temporada"
                                 temps[tematu] = []
@@ -175,5 +176,9 @@ def lst_() -> list:
 lst = []
 # pega_eps((0, 'https://www.redecanais.click/009-1-lista-completa-de-episodios-video_493213c32.html')) pega_eps((0,
 # 'https://www.redecanais.click/battle-programmer-shirase-legendado-lista-completa-de-episodios-video_66047b9c6.html
-# ')) pega_eps((0, 'https://www.redecanais.click/aishiteruze-baby-legendado-lista-completa-de-episodios
-# -video_136601d9d.html')) from pprint import pprint pprint(lst)
+# '))'
+# pega_eps((0, 'https://www.redecanais.click/aishiteruze-baby-legendado-lista-completa-'
+#              'de-episodios-video_136601d9d.html'))
+pega_eps((0, 'https://www.redecanais.click/digimon-adventure-02-dublado-lista-de-episodios_5e47fd18e.html'))
+from pprint import pprint
+pprint(lst)

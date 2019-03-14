@@ -84,12 +84,13 @@ def link_parse_filme(arq: str = 'filmes', nome_arq: str = 'filmes'):
     [(di['nome'].append(i[0]), di['link'].append(i[1]), di['imagem'].append(i[2]))
      for i in sorted(lst, key=lambda litem: litem[0])]
     salvar_arq(di, f"{nome_arq}")
+    gera_m3u_filmes()
 
 
 def link_parse_eps(arq: str, nome_arq: str):
     arquivo = ler_arq(arq)
     nome, link, imagem = arquivo.keys()
-    arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
+    arquivo = list(zip(arquivo[nome][151:200], arquivo[link][151:200], arquivo[imagem][151:200]))
     lst_().clear()
     node = Pool(10)
     espera = node.map_async(lambda x: pega_eps(x), arquivo)
@@ -103,13 +104,13 @@ def link_parse_eps(arq: str, nome_arq: str):
 
 
 def gera_m3u_filmes():
-    df = ler_arq("filme")
+    df = ler_arq("filmes")
     m3u = '#EXTM3U\n'
     for i in range(len(df['nome'])):
         m3u += '#EXTINF:-1 tvg-id="' + df['nome'][i] + '" tvg-name="' \
                + df['nome'][i] + '" logo="' + df['imagem'][i] + '",' + df['nome'][i] + '\n'
         m3u += df['link'][i] + "\n"
-    arq = open('json/filme.m3u', 'w')
+    arq = open('json/filmes.m3u', 'w')
     arq.write(m3u)
     arq.close()
 
@@ -118,11 +119,12 @@ with timeit():
     link_base = "https://www.redecanais.click/"
     pasta = "json"
     tupla = namedtuple("molde", "nome link imagem")
-    pipeline = [(cria_link_desenhos, "desenhos"),
-                (cria_link_animes, "animes"),
-                (cria_link_serie, "series"),
-                (cria_link_filme, "filmes")
-                ]
+    pipeline = [
+        (cria_link_desenhos, "desenhos"),
+        (cria_link_animes, "animes"),
+        (cria_link_serie, "series"),
+        (cria_link_filme, "filmes")
+    ]
     # [scraper_rede(*i) for i in pipeline]
     # link_parse_filme()
     link_parse_eps('animes', 'anime')

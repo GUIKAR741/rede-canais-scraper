@@ -72,8 +72,8 @@ def scraper_rede(func=cria_link_filme, nome='filmes'):
                         .replace("1080p", "")
                         .replace("720p", "")
                         .replace("480p", "").strip().split())),
-      di['link'].append(i.link),
-      di['imagem'].append(i.imagem))
+      di['link'].append(i.link.replace(',', '%2C')),
+      di['imagem'].append(i.imagem.replace(',', '%2C')))
      for i in sorted(lista, key=lambda litem: litem.nome)]
     salvar_arq(di, nome)
 
@@ -97,7 +97,7 @@ def link_parse_filme(arq: str = 'filmes', nome_arq: str = 'filmes'):
 def link_parse_eps(arq: str, nome_arq: str):
     arquivo = ler_arq(arq)
     nome, link, imagem = arquivo.keys()
-    arquivo = list(zip(arquivo[nome][:50], arquivo[link], arquivo[imagem]))
+    arquivo = list(zip(arquivo[nome][:100], arquivo[link], arquivo[imagem]))
     lst_().clear()
     node = Pool(10)
     espera = node.map_async(lambda x: pega_eps(x), arquivo)
@@ -128,10 +128,11 @@ with timeit():
     tupla = namedtuple("molde", "nome link imagem")
     pipeline = [
         (cria_link_desenhos, "desenhos"),
-        # (cria_link_animes, "animes")
+        (cria_link_animes, "animes"),
         (cria_link_serie, "series"),
         (cria_link_filme, "filmes")
     ]
-    [scraper_rede(*i) for i in pipeline]
-    link_parse_filme()
+    # [scraper_rede(*i) for i in pipeline]
+    # link_parse_filme()
+    gera_m3u_filmes()
     # link_parse_eps('animes', 'anime')

@@ -71,10 +71,20 @@ def pega_link_req(link_tupla: tuple, retorno: bool = False):
 
 
 def pega_eps(link_tupla: tuple):
+    from requests.models import Response
+    from requests import RequestException
+
+    def req_link(link) -> Response:
+        try:
+            resul = get(link)
+        except (Exception, RequestException):
+            resul = req_link(link)
+        return resul
+
     try:
         print(link_tupla)
         link_rede = link_tupla[1]
-        requisicao_get = get(link_rede)
+        requisicao_get = req_link(link_rede)
         if requisicao_get.status_code == 200 and requisicao_get.url == link_rede:
             req = parse_bs(requisicao_get.content)
             iframe = req.find('iframe', {'name': 'Player'})
@@ -83,90 +93,64 @@ def pega_eps(link_tupla: tuple):
                 if lin:
                     lst.append((*link_tupla, lin))
             else:
-                desc = req.find('div', {'itemprop': 'description'})\
-                        if req.find('div', {'itemprop': 'description'}) is not None \
-                        else req.find(class_=compile("description"))
-                temps = dict()
+                desc = req.find('div', {'itemprop': 'description'}) \
+                    if req.find('div', {'itemprop': 'description'}) is not None \
+                    else req.find(class_=compile("description"))
                 base = "https://www.redecanais.click"
-                tematu = ''
                 des = desc.find()
-                mod = dict()
-                ini = 1
-                nome = ''
+                episodios = []
                 # pegar itens
-                for i in des:
-                    if type(i) == NavigableString:
-                        nome += sanitizestring(str(i)).strip()
-                        mod = dict()
-                        mod[nome] = {}
-                    else:
-                        if ('span' in map(lambda x: x.name, i.contents) or i.name == 'span') \
-                                and i.text.lower().strip() != 'assistir' \
-                                and i.text.lower().strip() != '(legendado)':
-                            tematu = i.text.strip()
-                            temps[tematu] = []
-                        if ('episódio' in i.text.lower() or i.name == 'strong') and \
-                                (not ('assistir' in i.text.lower())) and i.text.strip() != '':
-                            nome = i.text
-                        t = i.find_all()
-                        t.append(i)
-                        if 'a' in map(lambda x: x.name, t):
-                            i = list(filter(lambda x: x.name == 'a', t))[0]
-                            if i.name != 'a':
-                                li = list(filter(lambda y: y[0] == 'a', map(lambda x: (x.name, x), i.contents)))[0]
-                                a, i = li
-                            if not (nome in mod.keys()):
-                                mod = dict()
-                                mod[nome] = {}
-                            mod[nome][i.text] = base + i.get('href').replace("%20", ' ').replace('[', '').split()[0]
-                            if tematu == '':
-                                tematu = str(ini) + " Temporada"
-                                temps[tematu] = []
-                            temps[str(tematu)].append(dict(mod))
-                # remover itens vazios
-                itens_excluir = []
-                for i in temps.keys():
-                    for j in range(len(temps[i])):
-                        for k in temps[i][j]:
-                            if temps[i][j][k] == {}:
-                                itens_excluir.append((i, j, k))
-                for i in itens_excluir:
-                    del (temps[i[0]][i[1]][i[2]])
-                ###
-                # Organizar Itens
-                for temporada in temps.keys():
-                    eps = []
-                    dic = {}
-                    for num, ep in (enumerate(temps[temporada])):
-                        abc = ([(e[0], e[1]) for e in ep.items()][0])
-                        dic[abc[0]] = []
-                        eps.append(abc)
-                    no = Pool(5)
-                    li = no.map_async(lambda x: altera_link(x, link_tupla), eps)
-                    li.wait()
-                    for d in li.get():
-                        if d is not None:
-                            dic[d[0]].append(d[1])
-                    temps[temporada] = dic
-                lst.append((*link_tupla, temps))
+                separar = des.prettify().replace('\n', '').split('<br/>')
+                for i in separar:
+                    parse_pag = parse_bs(i)
+                    if parse_pag.find('a') is not None:
+                        # print(' '.join(sanitizestring(parse_pag.text.replace('Assistir', '').replace('Dublado', '')
+                        #                               .replace('Legendado', '')).strip().split()),
+                        #       base + parse_pag.find('a').get('href').replace("%20", ' ').replace('[', '').split()[0])
+                        str_episodio = ' '.join(sanitizestring(parse_pag.text.replace('Assistir', '')
+                                                               .replace('Dublado', '').replace('Legendado', ''))
+                                                .strip().split())
+                        # print(parse_pag.find_all('a'))
+                        a_tag = parse_pag.find_all('a')
+                        if len(a_tag) == 1:
+                            str_link = base + a_tag[0].get('href').replace("%20", ' ') \
+                                .replace('[', '').split()[0]
+                        else:
+                            str_link = {
+                                k.text.strip(): base + k.get('href').replace("%20", ' ').replace('[', '').split()[0]
+                                for k in a_tag
+                            }
+                        ep = {str_episodio: str_link}
+                        episodios.append(ep)
+                no = Pool(5)
+                li = no.map_async(altera_link, episodios)
+                li.wait()
+                episodios.clear()
+                for d in li.get():
+                    if d is not None:
+                        episodios.append(d)
+                lst.append((*link_tupla, episodios))
     except Exception as e:
         red = "\033[1;31m"
         reset = "\033[0;0m"
-        print(red, link_tupla, e.__str__(), reset)
+        print(red, "pega_eps:", link_tupla, '\n', e.__str__(), type(e), e.with_traceback(e.__traceback__), reset)
 
 
-def altera_link(i, tupl: tuple):
+def altera_link(i: dict):
     try:
-        # dic={str(i[0]): []}
-        link = pega_link_req((0, i[1][[*i[1].keys()][0]]), retorno=True)
-        if link:
-            i[1][[*i[1].keys()][0]] = link
-            # dic[i[0]].append(i[1])
-            return i
+        chave = [*i.keys()][0]
+        tipo_link = type(i.get(*i.keys()))
+        if tipo_link == str:
+            link = pega_link_req((0, i.get(chave)), retorno=True)
+            i[chave] = link
+        if tipo_link == dict:
+            alt = {ep: pega_link_req((0, li), retorno=True) for ep, li in i[chave].items()}
+            i[chave] = alt
+        return i
     except Exception as e:
         red = "\033[1;31m"
         reset = "\033[0;0m"
-        print(red, tupl, i, e.__str__(), reset)
+        print(red, 'Altera Link:', i, '\n', e.__str__(), type(e), e.with_traceback(e.__traceback__), reset)
 
 
 def lst_() -> list:
@@ -174,11 +158,13 @@ def lst_() -> list:
 
 
 lst = []
-# pega_eps((0, 'https://www.redecanais.click/009-1-lista-completa-de-episodios-video_493213c32.html')) pega_eps((0,
-# 'https://www.redecanais.click/battle-programmer-shirase-legendado-lista-completa-de-episodios-video_66047b9c6.html
-# '))'
+# pega_eps((0, 'https://www.redecanais.click/009-1-lista-completa-de-episodios-video_493213c32.html'))
+# pega_eps((0, 'https://www.redecanais.click/battle-programmer-shirase-legendado-lista-'
+#             'completa-de-episodios-video_66047b9c6.html'))
 # pega_eps((0, 'https://www.redecanais.click/aishiteruze-baby-legendado-lista-completa-'
 #              'de-episodios-video_136601d9d.html'))
-pega_eps((0, 'https://www.redecanais.click/digimon-adventure-02-dublado-lista-de-episodios_5e47fd18e.html'))
-from pprint import pprint
-pprint(lst)
+# pega_eps((0, 'https://www.redecanais.click/digimon-adventure-02-dublado-lista-de-episodios_5e47fd18e.html'))
+# pega_eps((0, 'https://www.redecanais.click/fate-stay-night-dublado-lista-completa-de-episodios_f80dba774.html'))
+# from pprint import pprint
+#
+# pprint(lst)

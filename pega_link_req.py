@@ -75,7 +75,7 @@ def pega_eps(link_tupla: tuple):
         print(link_tupla)
         link_rede = link_tupla[1]
         requisicao_get = get(link_rede)
-        if requisicao_get.status_code==200 and requisicao_get.url==link_rede:
+        if requisicao_get.status_code == 200 and requisicao_get.url == link_rede:
             req = parse_bs(requisicao_get.content)
             iframe = req.find('iframe', {'name': 'Player'})
             if iframe is not None:
@@ -83,37 +83,39 @@ def pega_eps(link_tupla: tuple):
                 if lin:
                     lst.append((*link_tupla, lin))
             else:
-                desc = req.find('div', {'itemprop': 'description'}) if req.find('div', {'itemprop': 'description'}) is not None \
-                    else req.find(class_=compile("description"))
-                temps = {}
+                desc = req.find('div', {'itemprop': 'description'})\
+                        if req.find('div', {'itemprop': 'description'}) is not None \
+                        else req.find(class_=compile("description"))
+                temps = dict()
                 base = "https://www.redecanais.click"
                 tematu = ''
                 des = desc.find()
-                mod = {}
+                mod = dict()
                 ini = 1
                 nome = ''
                 # pegar itens
                 for i in des:
                     if type(i) == NavigableString:
                         nome += sanitizestring(str(i)).strip()
+                        mod = dict()
                         mod[nome] = {}
                     else:
-                        if 'span' in map(lambda x: x.name, i.contents) or i.name == 'span':
+                        if ('span' in map(lambda x: x.name, i.contents) or i.name == 'span') \
+                                and i.text.lower().strip() != 'assistir':
                             tematu = i.text.strip()
                             temps[tematu] = []
                         if ('episódio' in i.text.lower() or i.name == 'strong') and \
-                                (not ('assistir' in i.text.lower())) and i.text.strip()!='':
+                                (not ('assistir' in i.text.lower())) and i.text.strip() != '':
                             nome = i.text
-                        t=i.find_all()
+                        t = i.find_all()
                         t.append(i)
                         if 'a' in map(lambda x: x.name, t):
-                            i=list(filter(lambda x: x.name=='a', t))[0]
-                            # print(i)
+                            i = list(filter(lambda x: x.name == 'a', t))[0]
                             if i.name != 'a':
                                 li = list(filter(lambda y: y[0] == 'a', map(lambda x: (x.name, x), i.contents)))[0]
                                 a, i = li
-                            # print(mod)
                             if not (nome in mod.keys()):
+                                mod = dict()
                                 mod[nome] = {}
                             mod[nome][i.text] = base + i.get('href').replace("%20", ' ').split()[0]
                             if tematu == '':
@@ -134,7 +136,6 @@ def pega_eps(link_tupla: tuple):
                 for temporada in temps.keys():
                     eps = []
                     dic = {}
-                    print(list(enumerate(temps[temporada])))
                     for num, ep in (enumerate(temps[temporada])):
                         abc = ([(e[0], e[1]) for e in ep.items()][0])
                         dic[abc[0]] = []
@@ -148,9 +149,9 @@ def pega_eps(link_tupla: tuple):
                     temps[temporada] = dic
                 lst.append((*link_tupla, temps))
     except Exception as e:
-        RED = "\033[1;31m"
-        RESET = "\033[0;0m"
-        print(RED, link_tupla, e.__str__(), RESET)
+        red = "\033[1;31m"
+        reset = "\033[0;0m"
+        print(red, link_tupla, e.__str__(), reset)
 
 
 def altera_link(i, tupl: tuple):
@@ -162,9 +163,9 @@ def altera_link(i, tupl: tuple):
             # dic[i[0]].append(i[1])
             return i
     except Exception as e:
-        RED = "\033[1;31m"
-        RESET = "\033[0;0m"
-        print(RED, tupl, i, e.__str__(), RESET)
+        red = "\033[1;31m"
+        reset = "\033[0;0m"
+        print(red, tupl, i, e.__str__(), reset)
 
 
 def lst_() -> list:
@@ -172,8 +173,7 @@ def lst_() -> list:
 
 
 lst = []
-dicio_compart = {}
-# pega_eps((0, 'https://www.redecanais.click/009-1-lista-completa-de-episodios-video_493213c32.html'))
-pega_eps((0, 'https://www.redecanais.click/battle-programmer-shirase-legendado-lista-completa-de-episodios-video_66047b9c6.html'))
-# pega_eps((0, 'https://www.redecanais.click/aishiteruze-baby-legendado-lista-completa-de-episodios-video_136601d9d.html'))
-print(lst)
+# pega_eps((0, 'https://www.redecanais.click/009-1-lista-completa-de-episodios-video_493213c32.html')) pega_eps((0,
+# 'https://www.redecanais.click/battle-programmer-shirase-legendado-lista-completa-de-episodios-video_66047b9c6.html
+# ')) pega_eps((0, 'https://www.redecanais.click/aishiteruze-baby-legendado-lista-completa-de-episodios
+# -video_136601d9d.html')) from pprint import pprint pprint(lst)

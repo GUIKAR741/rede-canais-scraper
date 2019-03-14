@@ -43,9 +43,9 @@ def percorre_lista(pagina: int = 1, lst=None, func=cria_link_filme) -> int:
 def salvar_arq(arq: dict, nome: str):
     io = StringIO()
     dump(arq, io)
-    jsonS = io.getvalue()
+    json_s = io.getvalue()
     arq = open(f'{pasta}/{nome}.json', 'w')
-    arq.write(jsonS)
+    arq.write(json_s)
     arq.close()
 
 
@@ -89,7 +89,7 @@ def link_parse_filme(arq: str = 'filmes', nome_arq: str = 'filmes'):
 def link_parse_eps(arq: str, nome_arq: str):
     arquivo = ler_arq(arq)
     nome, link, imagem = arquivo.keys()
-    arquivo = list(zip(arquivo[nome][:50], arquivo[link], arquivo[imagem]))
+    arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
     lst_().clear()
     node = Pool(10)
     espera = node.map_async(lambda x: pega_eps(x), arquivo)

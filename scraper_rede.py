@@ -25,7 +25,7 @@ def cria_link_desenhos(i):
     return f"{link_base}browse-desenhos-videos-{i}-title.html"
 
 
-def percorre_lista(pagina: int = 1, lst=None, func=cria_link_filme) -> int:
+def percorre_lista(pagina: int = 1, lst: list = None, func=cria_link_filme) -> int:
     if lst is None:
         lst = []
     pprint(func(pagina))
@@ -66,12 +66,17 @@ def salva_lista(func=cria_link_filme) -> list:
 def scraper_rede(func=cria_link_filme, nome='filmes'):
     lista = salva_lista(func)
     di = {"nome": [], "link": [], "imagem": []}
-    [(di['nome'].append(' '.join(i.nome.replace("Dublado", "")
-                        .replace("Legendado", "")
-                        .replace("Lista de Episodios", "")
-                        .replace("1080p", "")
-                        .replace("720p", "")
-                        .replace("480p", "").strip().split())),
+    [(di['nome'].append(' '.join(i.nome
+                                 .replace("Lista de Episodios", "")
+                                 # .replace("Dublado", "")
+                                 # .replace("Legendado", "")
+                                 # .replace("1080p", "")
+                                 # .replace("720p", "")
+                                 # .replace("480p", "")
+                                 .strip()
+                                 .split()
+                                 )
+                        ),
       di['link'].append(i.link.replace(',', '%2C')),
       di['imagem'].append(i.imagem.replace(',', '%2C')))
      for i in sorted(lista, key=lambda litem: litem.nome)]
@@ -82,7 +87,7 @@ def link_parse_filme(arq: str = 'filmes', nome_arq: str = 'filmes'):
     arquivo = ler_arq(arq)
     nome, link, imagem = arquivo.keys()
     arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
-    node = Pool(100)
+    node = Pool(200)
     espera = node.map_async(lambda x: pega_link_req(x), arquivo)
     espera.wait()
     lst = lst_()
@@ -97,10 +102,10 @@ def link_parse_filme(arq: str = 'filmes', nome_arq: str = 'filmes'):
 def link_parse_eps(arq: str, nome_arq: str):
     arquivo = ler_arq(arq)
     nome, link, imagem = arquivo.keys()
-    arquivo = list(zip(arquivo[nome][:100], arquivo[link], arquivo[imagem]))
+    arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
     lst_().clear()
-    node = Pool(10)
-    espera = node.map_async(lambda x: pega_eps(x), arquivo)
+    node = Pool(3)
+    espera = node.map_async(pega_eps, arquivo)
     espera.wait()
     lst = lst_()
     pprint(len(lst))
@@ -108,6 +113,7 @@ def link_parse_eps(arq: str, nome_arq: str):
     [(di['nome'].append(i[0]), di['link'].append(i[1]), di['imagem'].append(i[2]), di['episodios'].append(i[3]))
      for i in sorted(lst, key=lambda litem: litem[0])]
     salvar_arq(di, f"{nome_arq}")
+    gera_m3u_eps(nome_arq)
 
 
 def gera_m3u_filmes():
@@ -118,6 +124,36 @@ def gera_m3u_filmes():
                + df['nome'][i] + '" logo="' + df['imagem'][i] + '",' + df['nome'][i] + '\n'
         m3u += df['link'][i] + "\n"
     arq = open('json/filmes.m3u', 'w')
+    arq.write(m3u)
+    arq.close()
+
+
+def gera_m3u_eps(arq: str):
+    df = ler_arq(arq)
+    m3u = '#EXTM3U\n'
+    for i in range(len(df['nome'])):
+        if type(df['episodios'][i]) == str:
+            m3u += '#EXTINF:-1 tvg-id="' + df['nome'][i] + '" tvg-name="' \
+                   + df['nome'][i] + '" logo="' + df['imagem'][i] + '",' + df['nome'][i] + '\n'
+            m3u += df['episodios'][i] + "\n"
+        elif type(df['episodios'][i]) == list:
+            li = df['episodios'][i]
+            nome = ' '.join(df['nome'][i].split())
+            for k in li:
+                chave = [*k.keys()][0]
+                if type(k[chave]) == str:
+                    m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
+                           + nome + '" logo="' + df['imagem'][i] + '",' + nome + ' ' + \
+                           ' '.join(chave.replace('Episodio', ' ').split()) + '\n'
+                    m3u += k[chave] + "\n"
+                elif type(k[chave]) == dict:
+                    for key, val in k[chave].items():
+                        if val:
+                            m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
+                                   + nome + '" logo="' + df['imagem'][i] + '",' + \
+                                   nome + ' ' + ' '.join(chave.replace('Episodio', ' ').split()) + ' ' + key + '\n'
+                            m3u += val + "\n"
+    arq = open(f'{pasta}/{arq}.m3u', 'w')
     arq.write(m3u)
     arq.close()
 
@@ -133,6 +169,5 @@ with timeit():
         (cria_link_filme, "filmes")
     ]
     # [scraper_rede(*i) for i in pipeline]
-    # link_parse_filme()
-    gera_m3u_filmes()
-    # link_parse_eps('animes', 'anime')
+    link_parse_filme()
+    # link_parse_eps('desenhos', 'desenhos')

@@ -29,7 +29,7 @@ def parse_bs(texto: str) -> Bs:
     return Bs(texto, 'html.parser')
 
 
-def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
+def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1) -> tuple or bool:
     def req_ses_get(link: str, headers: dict = None) -> Response:
         if headers is None:
             headers = {}
@@ -53,8 +53,8 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
         return resul
 
     try:
-        # if not retorno:
-        #     print(link_tupla)
+        if repeticoes >= 10:
+            return False
         link_solve = link_tupla[1]
         # define header e data
         header = {'Referer': ''}
@@ -63,7 +63,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
         # request da pagina inicial/link
         req_get = req_ses_get(link_solve)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_get.text.lower():
-            return pega_link_req(link_tupla, retorno)
+            return pega_link_req(link_tupla, retorno, repeticoes+1)
         if req_get.url != link_solve:
             return False
         ifra = parse_bs(req_get.content).find('iframe', {'name': 'Player'})
@@ -74,7 +74,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
         # abre o iframe
         req_get = req_ses_get(prox)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_get.text.lower():
-            return pega_link_req(link_tupla, retorno)
+            return pega_link_req(link_tupla, retorno, repeticoes+1)
         # req_get = ses.get(prox)
         dat = parse_bs(req_get.content)
         # pega o valor do form dentro do iframe
@@ -88,7 +88,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
         # sleep(1)
         req_post = req_ses_post(prox, data=d, headers=header)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_post.text.lower():
-            return pega_link_req(link_tupla, retorno)
+            return pega_link_req(link_tupla, retorno, repeticoes+1)
         dat = parse_bs(req_post.content)
         # pega o link para madar os dados do form
         prox = dat.find('form').get('action')
@@ -99,7 +99,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
         # requisicao da pagina de dentro do form do iframe
         req_post = req_ses_post(prox, data=d, headers=header)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_post.text.lower():
-            return pega_link_req(link_tupla, retorno)
+            return pega_link_req(link_tupla, retorno, repeticoes+1)
         # Seta pagina atual
         header['Referer'] = req_post.url
         # monta url final
@@ -108,7 +108,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
         # request na pagina final
         req_get = req_ses_get(link_fim, headers=header)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_get.text.lower():
-            return pega_link_req(link_tupla, retorno)
+            return pega_link_req(link_tupla, retorno, repeticoes+1)
         # pega o link do video
         dat = parse_bs(req_get.content)
         link_do_video = dat.find('source').get('src')
@@ -122,7 +122,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True) -> tuple or bool:
             return False
     except Exception as e:
         print(red, "pega_link_req:", link_tupla, '\n', e.__str__(), type(e), reset)
-        return pega_link_req(link_tupla, retorno)
+        return pega_link_req(link_tupla, retorno, repeticoes+1)
 
 
 def pega_eps(link_tupla: tuple) -> tuple or bool:
@@ -134,7 +134,7 @@ def pega_eps(link_tupla: tuple) -> tuple or bool:
             iframe = req.find('iframe', {'name': 'Player'})
             if iframe is not None:
                 lin = pega_link_req((0, link_rede), True)
-                return (*link_tupla, lin) if lin else False
+                return (*link_tupla, lin[-1]) if lin else False
             else:
                 desc = req.find('div', {'itemprop': 'description'}) \
                     if req.find('div', {'itemprop': 'description'}) is not None \
@@ -165,7 +165,7 @@ def pega_eps(link_tupla: tuple) -> tuple or bool:
                             }
                         ep = {str_episodio: str_link}
                         episodios.append(ep)
-                no = Pool()
+                no = Pool(5)
                 li = no.map_async(altera_link, episodios)
                 li.wait()
                 episodios.clear()
@@ -185,22 +185,25 @@ def altera_link(i: dict):
         chave = [*i.keys()][0]
         tipo_link = type(i.get(*i.keys()))
         if tipo_link == str:
-            link = pega_link_req((0, i.get(chave)), retorno=False)[-1] if not ('.jpg' in i.get(chave)) else False
+            ret = pega_link_req((0, i.get(chave)), retorno=False) if not ('.jpg' in i.get(chave)) else False
+            link = ret[-1] if ret else ret
             i[chave] = link
         if tipo_link == dict:
-            alt = {ep: pega_link_req((0, li), retorno=False)[-1] if not ('.jpg' in i.get(chave)) else False
-                   for ep, li in i[chave].items()}
+            alt = {}
+            for ep, li in i[chave].items():
+                ret = pega_link_req((0, li), retorno=False) if not ('.jpg' in li) else False
+                alt[ep] = ret[-1] if ret else ret
             i[chave] = alt
         return i
     except Exception as e:
-        print(red, 'Altera Link:', i, '\n', e.__str__(), type(e), reset)
+        print(red, 'Altera Link:', i, tipo_link, '\n', e.__str__(), type(e), reset)
 
 
 def dispatcher(tupla_link: tuple):
     link = tupla_link[1]
-    get = req_link(link)
-    if get.status_code == 200 and get.url == link:
-        req = parse_bs(get.content)
+    get_req = req_link(link)
+    if get_req.status_code == 200 and get_req.url == link:
+        req = parse_bs(get_req.content)
         iframe = req.find('iframe', {'name': 'Player'})
         if iframe is not None:
             lin = pega_link_req((0, iframe.get("src")), True)
@@ -217,7 +220,8 @@ cont = 0
 #             'completa-de-episodios-video_66047b9c6.html'))
 # pega_eps((0, 'https://www.redecanais.click/aishiteruze-baby-legendado-lista-completa-'
 #              'de-episodios-video_136601d9d.html'))
-# print(pega_eps((0, 'https://www.redecanais.click/gungrave-legendado-lista-completa-de-episodios-video_9643748b0.html')))
+# print(pega_eps((0, 'https://www.redecanais.click/
+# gungrave-legendado-lista-completa-de-episodios-video_9643748b0.html')))
 # pega_eps((0, 'https://www.redecanais.click/ultimate-homem-aranha-dublado'
 #              '-lista-completa-de-episodios-video_490ba9c0a.html'))
 # from pprint import pprint

@@ -213,7 +213,8 @@ def dispatcher(tupla_link: tuple):
         req = parse_bs(get_req.content)
         iframe = req.find('iframe', {'name': 'Player'})
         if iframe is not None:
-            lin = pega_link_req(link_tupla=(tupla_link[0], iframe.get("src")), retorno=True, frame=True)
+            lin = pega_link_req(link_tupla=(tupla_link[0], iframe.get("src").replace('hhttps://', 'https://')),
+                                retorno=True, frame=True)
             return (*tupla_link, lin) if lin else False
         else:
             return pega_eps(tupla_link, conteudo=get_req.content)

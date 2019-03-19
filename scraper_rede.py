@@ -4,9 +4,9 @@ from collections import namedtuple
 from pprint import pprint
 from multiprocessing.dummy import Pool
 from io import StringIO
-from json import dump, load, dumps
+from json import dump, load
 from funcs import sanitizestring, timeit
-from pega_link_req import pega_link_req, pega_eps
+from pega_link_req import dispatcher
 
 
 def cria_link_filme(i):
@@ -50,8 +50,6 @@ def salvar_arq(arq: dict, nome: str):
 
 
 def ler_arq(nome: str) -> dict:
-    # print(dumps(load(open(f'{pasta}/{nome}.json')), indent=4))
-    # exit(0)
     return load(open(f'{pasta}/{nome}.json'))
 
 
@@ -71,11 +69,6 @@ def scraper_rede(func=cria_link_filme, nome='filmes'):
     [(di['nome'].append(' '.join(i.nome
                                  .replace("Lista de Episodios", "")
                                  .replace("Lista de Episodio", "")
-                                 # .replace("Dublado", "")
-                                 # .replace("Legendado", "")
-                                 # .replace("1080p", "")
-                                 # .replace("720p", "")
-                                 # .replace("480p", "")
                                  .strip()
                                  .split()
                                  )
@@ -86,40 +79,23 @@ def scraper_rede(func=cria_link_filme, nome='filmes'):
     salvar_arq(di, nome)
 
 
-def link_parse_filme(arq: str = 'filmes', nome_arq: str = 'filmes'):
+def link_parse(arq: str, tam_pool: int = 10):
     arquivo = ler_arq(arq)
     nome, link, imagem = [*arquivo.keys()][:3]
     arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
-    print("total:", len(arquivo))
-    node = Pool(20)
-    espera = node.map_async(pega_link_req, arquivo)
-    espera.wait()
-    lst = espera.get()
-    print("total fim:", len(lst))
-    di = {"nome": [], "link": [], "imagem": [], 'assistir': []}
-    [(di['nome'].append(i[0]), di['link'].append(i[1]), di['imagem'].append(i[2]), di['assistir'].append(i[3]))
-     if i else i
-     for i in sorted(list(filter(lambda x: x is not False or x is not None, lst)), key=lambda litem: litem[0])]
-    salvar_arq(di, f"{nome_arq}")
-    gera_m3u(nome_arq)
-
-
-def link_parse_eps(arq: str, nome_arq: str):
-    arquivo = ler_arq(arq)
-    nome, link, imagem = [*arquivo.keys()][:3]
-    arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
-    print(len(arquivo))
-    node = Pool(10)
-    espera = node.map_async(pega_eps, arquivo)
+    print("Total:", len(arquivo))
+    node = Pool(tam_pool)
+    espera = node.map_async(dispatcher, arquivo)
     espera.wait()
     di = {"nome": [], "link": [], "imagem": [], 'assistir': []}
     lis = espera.get()
+    print("total fim:", len(lis))
     [(di['nome'].append(i[0]), di['link'].append(i[1]), di['imagem'].append(i[2]), di['assistir'].append(i[3]))
      if i else i
      for i in sorted(list(filter(lambda x: x is not None, filter(lambda x: x is not False, lis))),
                      key=lambda litem: litem[0])]
-    salvar_arq(di, f"{nome_arq}")
-    gera_m3u(nome_arq)
+    salvar_arq(di, arq)
+    gera_m3u(arq)
 
 
 def gera_m3u(arq: str):
@@ -158,13 +134,16 @@ with timeit():
     pasta = "json"
     tupla = namedtuple("molde", "nome link imagem")
     pipeline = [
-        # (cria_link_desenhos, "desenhos")
-        # (cria_link_animes, "animes")
-        (cria_link_serie, "series")
-        # (cria_link_filme, "filmes")
+        (cria_link_desenhos, "desenhos"),
+        (cria_link_animes, "animes"),
+        (cria_link_serie, "series"),
+        (cria_link_filme, "filmes")
     ]
-    # [scraper_rede(*i) for i in pipeline]
-    # link_parse_filme()
-    # link_parse_eps('desenhos', 'desenhos')
-    # link_parse_eps('series', 'series')
-    # link_parse_eps('animes', 'animes')
+    [scraper_rede(*i) for i in pipeline]
+    pipeline = {
+        ('filmes', 30),
+        ('desenhos',),
+        ('animes',),
+        ('series',)
+    }
+    [link_parse(*i) for i in pipeline]

@@ -55,7 +55,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1) 
     try:
         if repeticoes >= 10:
             return False
-        link_solve = link_tupla[1]
+        link_solve = link_tupla[1].replace('https://rede.canais.vip', '')
         # define header e data
         header = {'Referer': ''}
         d = {'data': ''}
@@ -185,13 +185,15 @@ def altera_link(i: dict):
         chave = [*i.keys()][0]
         tipo_link = type(i.get(*i.keys()))
         if tipo_link == str:
-            ret = pega_link_req((0, i.get(chave)), retorno=False) if not ('.jpg' in i.get(chave)) else False
+            ret = pega_link_req((0, i.get(chave)), retorno=False) if not ('.jpg' in i.get(chave) or
+                                                                          'href' in i.get(chave)) else False
             link = ret[-1] if ret else ret
             i[chave] = link
         if tipo_link == dict:
             alt = {}
             for ep, li in i[chave].items():
-                ret = pega_link_req((0, li), retorno=False) if not ('.jpg' in li) else False
+                ret = pega_link_req((0, li), retorno=False) if not ('.jpg' in li or
+                                                                    '<a' in li) else False
                 alt[ep] = ret[-1] if ret else ret
             i[chave] = alt
         return i
@@ -220,8 +222,7 @@ cont = 0
 #             'completa-de-episodios-video_66047b9c6.html'))
 # pega_eps((0, 'https://www.redecanais.click/aishiteruze-baby-legendado-lista-completa-'
 #              'de-episodios-video_136601d9d.html'))
-# print(pega_eps((0, 'https://www.redecanais.click/
-# gungrave-legendado-lista-completa-de-episodios-video_9643748b0.html')))
+# print(pega_eps((0, 'https://www.redecanais.click/dracula-dublado-legendado-lista-de-episodios_d9e2bd3b1.html')))
 # pega_eps((0, 'https://www.redecanais.click/ultimate-homem-aranha-dublado'
 #              '-lista-completa-de-episodios-video_490ba9c0a.html'))
 # from pprint import pprint

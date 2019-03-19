@@ -70,6 +70,7 @@ def scraper_rede(func=cria_link_filme, nome='filmes'):
     di = {"nome": [], "link": [], "imagem": []}
     [(di['nome'].append(' '.join(i.nome
                                  .replace("Lista de Episodios", "")
+                                 .replace("Lista de Episodio", "")
                                  # .replace("Dublado", "")
                                  # .replace("Legendado", "")
                                  # .replace("1080p", "")
@@ -158,12 +159,12 @@ with timeit():
     tupla = namedtuple("molde", "nome link imagem")
     pipeline = [
         # (cria_link_desenhos, "desenhos")
-        (cria_link_animes, "animes")
-        # (cria_link_serie, "series")
+        # (cria_link_animes, "animes")
+        (cria_link_serie, "series")
         # (cria_link_filme, "filmes")
     ]
-    [scraper_rede(*i) for i in pipeline]
+    # [scraper_rede(*i) for i in pipeline]
     # link_parse_filme()
     # link_parse_eps('desenhos', 'desenhos')
-    link_parse_eps('series', 'series')
+    # link_parse_eps('series', 'series')
     # link_parse_eps('animes', 'animes')

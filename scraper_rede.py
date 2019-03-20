@@ -112,12 +112,12 @@ def gera_m3u(arq: str):
             for k in li:
                 chave = [*k.keys()][0]
                 if type(k[chave]) == str:
-                    nome = ' '.join(nome.replace("Dublado", '').replace('Legendado', '').split())
                     m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
                            + nome + '" logo="' + df['imagem'][i] + '",' + nome + ' ' + \
                            ' '.join(chave.replace('Episodio', ' ').split()) + " " + chave + '\n'
                     m3u += k[chave] + "\n"
                 elif type(k[chave]) == dict:
+                    nome = ' '.join(nome.replace("Dublado", '').replace('Legendado', '').split())
                     for key, val in k[chave].items():
                         if val:
                             m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \

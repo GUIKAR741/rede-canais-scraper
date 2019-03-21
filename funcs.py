@@ -17,4 +17,8 @@ def sanitizestring(palavra):
     nfkd = normalize('NFKD', palavra)
     palavrasemacento = u"".join([c for c in nfkd if not combining(c)])
     # Usa expressão regular para retornar a palavra apenas com números, letras e espaço
-    return sub('[^a-zA-Z0-9 \\\]', '', palavrasemacento)
+    return sub('[^a-zA-Z0-9 ]', '', palavrasemacento)
+
+
+def tira_num(palavra):
+    return sub('[^a-zA-Z ]', '', palavra)

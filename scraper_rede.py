@@ -5,7 +5,7 @@ from pprint import pprint
 from multiprocessing.dummy import Pool
 from io import StringIO
 from json import dump, load
-from funcs import sanitizestring, timeit
+from funcs import sanitizestring, timeit, tira_num
 from pega_link_req import dispatcher
 
 
@@ -109,12 +109,15 @@ def gera_m3u(arq: str):
         elif type(df['assistir'][i]) == list:
             li = df['assistir'][i]
             nome = ' '.join(df['nome'][i].split())
+            tam = 1
+            tam_str = len(str(len(li)))
             for k in li:
                 chave = [*k.keys()][0]
                 if type(k[chave]) == str:
                     m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
                            + nome + '" logo="' + df['imagem'][i] + '",' + nome + ' ' + \
-                           ' '.join(chave.replace('Episodio', ' ').split()) + " " + chave + '\n'
+                           '0' * (tam_str - len(str(tam))) + str(tam) + ' ' + \
+                           ' '.join(tira_num(chave).replace('Episodio', ' ').split()) + " " + '\n'
                     m3u += k[chave] + "\n"
                 elif type(k[chave]) == dict:
                     nome = ' '.join(nome.replace("Dublado", '').replace('Legendado', '').split())
@@ -122,8 +125,10 @@ def gera_m3u(arq: str):
                         if val:
                             m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
                                    + nome + '" logo="' + df['imagem'][i] + '",' + \
-                                   nome + ' ' + ' '.join(chave.replace('Episodio', ' ').split()) + ' ' + key + '\n'
+                                   nome + ' ' + '0' * (tam_str-len(str(tam)))+str(tam) + ' ' + \
+                                   ' '.join(tira_num(chave).replace('Episodio', ' ').split()) + ' ' + key + '\n'
                             m3u += val + "\n"
+                tam += 1
     arq = open(f'{pasta}/{arq}.m3u', 'w')
     arq.write(m3u)
     arq.close()

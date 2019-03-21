@@ -138,17 +138,18 @@ with timeit():
     link_base = "https://www.redecanais.click/"
     pasta = "json"
     tupla = namedtuple("molde", "nome link imagem")
-    pipeline = [
-        (cria_link_desenhos, "desenhos"),
-        (cria_link_animes, "animes"),
-        (cria_link_serie, "series"),
-        (cria_link_filme, "filmes")
-    ]
-    [scraper_rede(*i) for i in pipeline]
-    pipeline = {
-        ('filmes', 30),
-        ('desenhos',),
-        ('animes',),
-        ('series',)
-    }
-    [link_parse(*i) for i in pipeline]
+    gera_m3u('filmes')
+    # pipeline = [
+    #     (cria_link_desenhos, "desenhos"),
+    #     (cria_link_animes, "animes"),
+    #     (cria_link_serie, "series"),
+    #     (cria_link_filme, "filmes")
+    # ]
+    # [scraper_rede(*i) for i in pipeline]
+    # pipeline = {
+    #     ('filmes', 30),
+    #     ('desenhos',),
+    #     ('animes',),
+    #     ('series',)
+    # }
+    # [link_parse(*i) for i in pipeline]

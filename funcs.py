@@ -21,4 +21,4 @@ def sanitizestring(palavra):
 
 
 def tira_num(palavra):
-    return sub('[^a-zA-Z ]', '', palavra)
+    return sub('[^a-zA-Z ]', '', palavra[:int(len(palavra)/2)])+palavra[int(len(palavra)/2):]

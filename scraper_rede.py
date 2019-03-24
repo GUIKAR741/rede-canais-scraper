@@ -1,31 +1,39 @@
-from requests import get
-from bs4 import BeautifulSoup as Bs
+"""Scraper no site rede canais para pegar filmes, series, desenhos e animes."""
 from collections import namedtuple
-from pprint import pprint
-from multiprocessing.dummy import Pool
 from io import StringIO
 from json import dump, load
+from multiprocessing.dummy import Pool
+from pprint import pprint
+
+from bs4 import BeautifulSoup as Bs
+from requests import get
+
 from funcs import sanitizestring, timeit, tira_num
 from pega_link_req import dispatcher
 
 
 def cria_link_filme(i):
+    """Cria o link dos filmes."""
     return f"{link_base}browse-filmes-videos-{i}-title.html"
 
 
 def cria_link_serie(i):
+    """Cria o link das series."""
     return f"{link_base}browse-series-videos-{i}-title.html"
 
 
 def cria_link_animes(i):
+    """Cria o link dos animes."""
     return f"{link_base}browse-animes-videos-{i}-title.html"
 
 
 def cria_link_desenhos(i):
+    """Cria o link dos desenhos."""
     return f"{link_base}browse-desenhos-videos-{i}-title.html"
 
 
 def percorre_lista(pagina: int = 1, lst: list = None, func=cria_link_filme) -> int:
+    """Pega as informações de cada tipo do site."""
     if lst is None:
         lst = []
     pprint(func(pagina))
@@ -41,6 +49,7 @@ def percorre_lista(pagina: int = 1, lst: list = None, func=cria_link_filme) -> i
 
 
 def salvar_arq(arq: dict, nome: str):
+    """Salva o arquivo json."""
     io = StringIO()
     dump(arq, io)
     json_s = io.getvalue()
@@ -50,10 +59,12 @@ def salvar_arq(arq: dict, nome: str):
 
 
 def ler_arq(nome: str) -> dict:
+    """Abre o arquivo json."""
     return load(open(f'{pasta}/{nome}.json'))
 
 
 def salva_lista(func=cria_link_filme) -> list:
+    """Salva a lista."""
     lst = []
     ultimo = percorre_lista(lst=lst, func=func)
     li = [i for i in range(2, ultimo + 1)]
@@ -64,6 +75,7 @@ def salva_lista(func=cria_link_filme) -> list:
 
 
 def scraper_rede(func=cria_link_filme, nome='filmes'):
+    """Percorre as paginas e salva no arquivo."""
     lista = salva_lista(func)
     di = {"nome": [], "link": [], "imagem": []}
     [(di['nome'].append(' '.join(i.nome
@@ -80,6 +92,7 @@ def scraper_rede(func=cria_link_filme, nome='filmes'):
 
 
 def link_parse(arq: str, tam_pool: int = 10):
+    """Pegar links."""
     arquivo = ler_arq(arq)
     nome, link, imagem = [*arquivo.keys()][:3]
     arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
@@ -90,7 +103,10 @@ def link_parse(arq: str, tam_pool: int = 10):
     di = {"nome": [], "link": [], "imagem": [], 'assistir': []}
     lis = espera.get()
     print("total fim:", len(lis))
-    [(di['nome'].append(i[0]), di['link'].append(i[1]), di['imagem'].append(i[2]), di['assistir'].append(i[3]))
+    [(di['nome'].append(i[0]),
+      di['link'].append(i[1]),
+      di['imagem'].append(i[2]),
+      di['assistir'].append(i[3]))
      if i else i
      for i in sorted(list(filter(lambda x: x is not None, filter(lambda x: x is not False, lis))),
                      key=lambda litem: litem[0])]
@@ -99,12 +115,14 @@ def link_parse(arq: str, tam_pool: int = 10):
 
 
 def gera_m3u(arq: str):
+    """Gera Lista."""
     df = ler_arq(arq)
     m3u = '#EXTM3U\n'
     for i in range(len(df['nome'])):
         if type(df['assistir'][i]) == str:
             m3u += '#EXTINF:-1 tvg-id="' + df['nome'][i] + '" tvg-name="' \
-                   + df['nome'][i] + '" logo="' + df['imagem'][i] + '",' + df['nome'][i] + '\n'
+                   + df['nome'][i] + '" logo="' + \
+                df['imagem'][i] + '",' + df['nome'][i] + '\n'
             m3u += df['assistir'][i] + "\n"
         elif type(df['assistir'][i]) == list:
             li = df['assistir'][i]
@@ -117,16 +135,20 @@ def gera_m3u(arq: str):
                     m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
                            + nome + '" logo="' + df['imagem'][i] + '",' + nome + ' ' + \
                            '0' * (tam_str - len(str(tam))) + str(tam) + ' ' + \
-                           ' '.join(tira_num(chave).replace('Episodio', ' ').split()) + " " + '\n'
+                           ' '.join(tira_num(chave).replace(
+                               'Episodio', ' ').split()) + " " + '\n'
                     m3u += k[chave] + "\n"
                 elif type(k[chave]) == dict:
-                    nome = ' '.join(nome.replace("Dublado", '').replace('Legendado', '').split())
+                    nome = ' '.join(nome.replace(
+                        "Dublado", '').replace('Legendado', '').split())
                     for key, val in k[chave].items():
                         if val:
                             m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
                                    + nome + '" logo="' + df['imagem'][i] + '",' + \
                                    nome + ' ' + '0' * (tam_str-len(str(tam)))+str(tam) + ' ' + \
-                                   ' '.join(tira_num(chave).replace('Episodio', ' ').split()) + ' ' + key + '\n'
+                                   ' '.join(tira_num(chave)
+                                            .replace('Episodio', ' ')
+                                            .split()) + ' ' + key + '\n'
                             m3u += val + "\n"
                 tam += 1
     arq = open(f'{pasta}/{arq}.m3u', 'w')
@@ -139,17 +161,17 @@ with timeit():
     pasta = "json"
     tupla = namedtuple("molde", "nome link imagem")
     gera_m3u('filmes')
-    # pipeline = [
-    #     (cria_link_desenhos, "desenhos"),
-    #     (cria_link_animes, "animes"),
-    #     (cria_link_serie, "series"),
-    #     (cria_link_filme, "filmes")
-    # ]
-    # [scraper_rede(*i) for i in pipeline]
-    # pipeline = {
-    #     ('filmes', 30),
-    #     ('desenhos',),
-    #     ('animes',),
-    #     ('series',)
-    # }
-    # [link_parse(*i) for i in pipeline]
+    pipeline = [
+        (cria_link_desenhos, "desenhos"),
+        (cria_link_animes, "animes"),
+        (cria_link_serie, "series"),
+        (cria_link_filme, "filmes")
+    ]
+    [scraper_rede(*i) for i in pipeline]
+    pipeline = {
+        ('filmes', 30),
+        ('desenhos',),
+        ('animes',),
+        ('series',)
+    }
+    [link_parse(*i) for i in pipeline]

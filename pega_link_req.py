@@ -62,8 +62,6 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
             resul = req_ses_post(link)
         return resul
 
-    global cont
-    conta = cont
     try:
         if repeticoes >= 10:
             return False
@@ -133,9 +131,6 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
         # pega o link do video
         dat = parse_bs(req_get.content)
         link_do_video = dat.find('source').get('src')
-        if retorno:
-            conta += 1
-            print(cont, link_tupla[0], link_tupla[1])
         if verifica_link(link_do_video):
             return (*link_tupla, link_do_video)
         else:
@@ -149,7 +144,6 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
 
 def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
     """Pega os episodios da pagina e passa para pegar o link."""
-    global cont
     try:
         if conteudo == b'':
             link_rede = link_tupla[1]
@@ -192,23 +186,22 @@ def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
                     }
                 ep = {str_episodio: str_link}
                 episodios.append(ep)
-        no = Pool(5)
-        li = no.map_async(altera_link, episodios)
+        no = Pool(10)
+        li = no.map_async(lambda x: altera_link(x, link_tupla), episodios)
         li.wait()
         episodios.clear()
         for d in li.get():
             if d is not None:
                 episodios.append(d)
-        cont += 1
-        print(cont, link_tupla[0], link_tupla[1])
         return (*link_tupla, episodios)
     except Exception as e:
         print(red, "pega_eps:", link_tupla, '\n', e.__str__(),
               type(e), e.with_traceback(e.__traceback__), reset)
 
 
-def altera_link(i: dict):
+def altera_link(i: dict, tupla: tuple):
     """Altera o link pegando o link pra assistir."""
+    global cont
     try:
         chave = [*i.keys()][0]
         tipo_link = type(i.get(*i.keys()))
@@ -218,12 +211,16 @@ def altera_link(i: dict):
                 else False
             link = ret[-1] if ret else ret
             i[chave] = link
-        if tipo_link == dict:
+            cont = cont + 1
+            print(cont, tupla[0], chave)
+        elif tipo_link == dict:
             alt = {}
             for ep, li in i[chave].items():
                 ret = pega_link_req((0, li), retorno=False) if not ('.jpg' in li or
                                                                     '<a' in li) else False
                 alt[ep] = ret[-1] if ret else ret
+                cont = cont + 1
+                print(cont, tupla[0], ep)
             i[chave] = alt
         return i
     except Exception as e:
@@ -234,6 +231,7 @@ def dispatcher(tupla_link: tuple):
     """Separa para onde cada tupla deve ir."""
     link = tupla_link[1]
     get_req = req_link(link)
+    # global cont
     if get_req.status_code == 200 and get_req.url == link:
         req = parse_bs(get_req.content)
         iframe = req.find('iframe', {'name': 'Player'})
@@ -241,9 +239,15 @@ def dispatcher(tupla_link: tuple):
             lin = pega_link_req(link_tupla=(tupla_link[0], iframe.get("src")
                                             .replace('hhttps://', 'https://')),
                                 retorno=True, frame=True)
-            return (*tupla_link, lin) if lin else False
+            global cont
+            cont = cont + 1
+            print(cont, tupla_link[0], tupla_link[1])
+            return (*tupla_link, lin[-1]) if lin else False
         else:
-            return pega_eps(tupla_link, conteudo=get_req.content)
+            eps = pega_eps(tupla_link, conteudo=get_req.content)
+            # cont += 1
+            # print(cont, tupla_link[0], tupla_link[1])
+            return eps
 
 
 red = "\033[1;31m"

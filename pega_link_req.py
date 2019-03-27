@@ -1,6 +1,7 @@
 """Faz a resolução dos links."""
-from multiprocessing.dummy import Pool
 from re import compile as comp
+from threading import Thread
+from time import sleep
 
 from bs4 import BeautifulSoup as Bs
 from requests import RequestException, Session, get
@@ -46,6 +47,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
         except (Exception, RequestException) as ee:
             print(red, 'tá dando erro get', link,
                   link_tupla, ee, type(ee), reset)
+            sleep(0.5)
             resul = req_ses_get(link)
         return resul
 
@@ -59,6 +61,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
         except (Exception, RequestException) as ee:
             print(red, 'tá dando erro post', link,
                   link_tupla, ee, type(ee), reset)
+            sleep(0.5)
             resul = req_ses_post(link)
         return resul
 
@@ -142,6 +145,19 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
                              repeticoes=(repeticoes+1), frame=frame)
 
 
+def get_pool(n_th: int, func, fila, lista: list):
+    """Retorna um número n de Threads."""
+    return [Thread(target=env_alt, args=[func, fila, lista], name=f'Worker{n}')
+            for n in range(n_th)]
+
+
+def env_alt(func, fila, lista):
+    """."""
+    while len(fila) > 0:
+        ep, tup, num = fila.pop(0)
+        lista[num] = func(ep, tup)
+
+
 def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
     """Pega os episodios da pagina e passa para pegar o link."""
     try:
@@ -162,6 +178,7 @@ def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
         episodios = []
         # pegar itens
         separar = des.prettify().replace('\n', '').split('<br/>')
+        fila = []
         for i in separar:
             parse_pag = parse_bs(i)
             if parse_pag.find('a') is not None:
@@ -186,13 +203,14 @@ def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
                     }
                 ep = {str_episodio: str_link}
                 episodios.append(ep)
-        no = Pool(10)
-        li = no.map_async(lambda x: altera_link(x, link_tupla), episodios)
-        li.wait()
-        episodios.clear()
-        for d in li.get():
-            if d is not None:
-                episodios.append(d)
+        [fila.append((episodios[i], link_tupla, i)) for i in range(len(episodios))]
+        li_ep = [None for i in range(len(episodios))]
+        # print(fila)
+        # [fila.put('Kill') for i in range(5)]
+        mypool = get_pool(5, altera_link, fila, li_ep)
+        [i.start() for i in mypool]
+        [i.join() for i in mypool]
+        # pprint(link_tupla[0])
         return (*link_tupla, episodios)
     except Exception as e:
         print(red, "pega_eps:", link_tupla, '\n', e.__str__(),
@@ -211,16 +229,16 @@ def altera_link(i: dict, tupla: tuple):
                 else False
             link = ret[-1] if ret else ret
             i[chave] = link
-            cont = cont + 1
-            print(cont, tupla[0], chave)
+            # cont = cont + 1
+            # print(cont, tupla[0], chave)
         elif tipo_link == dict:
             alt = {}
             for ep, li in i[chave].items():
                 ret = pega_link_req((0, li), retorno=False) if not ('.jpg' in li or
                                                                     '<a' in li) else False
                 alt[ep] = ret[-1] if ret else ret
-                cont = cont + 1
-                print(cont, tupla[0], ep)
+                # cont = cont + 1
+                # print(cont, tupla[0], ep)
             i[chave] = alt
         return i
     except Exception as e:
@@ -231,7 +249,7 @@ def dispatcher(tupla_link: tuple):
     """Separa para onde cada tupla deve ir."""
     link = tupla_link[1]
     get_req = req_link(link)
-    # global cont
+    global cont
     if get_req.status_code == 200 and get_req.url == link:
         req = parse_bs(get_req.content)
         iframe = req.find('iframe', {'name': 'Player'})
@@ -245,8 +263,8 @@ def dispatcher(tupla_link: tuple):
             return (*tupla_link, lin[-1]) if lin else False
         else:
             eps = pega_eps(tupla_link, conteudo=get_req.content)
-            # cont += 1
-            # print(cont, tupla_link[0], tupla_link[1])
+            cont += 1
+            print(cont, tupla_link[0], tupla_link[1])
             return eps
 
 

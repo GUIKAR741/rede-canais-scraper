@@ -3,6 +3,7 @@ from collections import namedtuple
 from io import StringIO
 from json import dump, load
 from multiprocessing.dummy import Pool
+from threading import Thread
 from pprint import pprint
 
 from bs4 import BeautifulSoup as Bs
@@ -91,17 +92,42 @@ def scraper_rede(func=cria_link_filme, nome='filmes'):
     salvar_arq(di, nome)
 
 
+def get_pool(n_th: int, func, fila, lista: list):
+    """Retorna um número n de Threads."""
+    return [Thread(target=env_parse, args=[func, fila, lista], name=f'Worker{n}')
+            for n in range(n_th)]
+
+
+def env_parse(func, fila, lista):
+    """."""
+    while len(fila) > 0:
+        item, num = fila.pop(0)
+        lista[num] = func(item)
+
+
 def link_parse(arq: str, tam_pool: int = 10):
     """Pegar links."""
     arquivo = ler_arq(arq)
     nome, link, imagem = [*arquivo.keys()][:3]
     arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
     print("Total:", len(arquivo))
-    node = Pool(tam_pool)
-    espera = node.map_async(dispatcher, arquivo)
-    espera.wait()
+    fila = [(arquivo[i], i) for i in range(len(arquivo))]
+    lis = [None for i in range(len(arquivo))]
+    meupool = get_pool(tam_pool, dispatcher, fila, lis)
+    [i.start() for i in meupool]
+    [i.join() for i in meupool]
+#     {"nome": [
+#     "American Dad Dublado Legendado"
+# ],"link": [
+#     "https://www.redecanais.click/american-dad-dublado-legendado-lista-de-episodios_488d30cb3.html"
+# ], "imagem": [
+#     "https://cometa.top/player3/imgs-videos/RCServer04/imgs-videos/American%20Dad9.jpg"
+# ]}
+    # node = Pool(tam_pool)
+    # espera = node.map_async(dispatcher, arquivo)
+    # espera.wait()
     di = {"nome": [], "link": [], "imagem": [], 'assistir': []}
-    lis = espera.get()
+    # lis = espera.get()
     print("total fim:", len(lis))
     [(di['nome'].append(i[0]),
       di['link'].append(i[1]),
@@ -161,15 +187,15 @@ with timeit():
     pasta = "json"
     tupla = namedtuple("molde", "nome link imagem")
     pipeline = [
-        (cria_link_desenhos, "desenhos")
+        # (cria_link_desenhos, "desenhos")
         # (cria_link_animes, "animes"),
-        # (cria_link_serie, "series"),
+        # (cria_link_serie, "series")
         # (cria_link_filme, "filmes")
     ]
     # [scraper_rede(*i) for i in pipeline]
     pipeline = {
-        ('desenhos', 2)
-        # ('animes',),
+        # ('desenhos', 10)
+        ('animes',)
         # ('series',)
         # ('filmes', 30)
     }

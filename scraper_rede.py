@@ -195,8 +195,8 @@ with timeit():
     # [scraper_rede(*i) for i in pipeline]
     pipeline = {
         # ('desenhos', 10)
-        ('animes',)
-        # ('series',)
+        # ('animes',)
+        ('series',)
         # ('filmes', 30)
     }
     [link_parse(*i) for i in pipeline]

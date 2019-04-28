@@ -199,4 +199,6 @@ with timeit():
         ('series',)
         # ('filmes', 30)
     }
-    [link_parse(*i) for i in pipeline]
+    # [link_parse(*i) for i in pipeline]
+    print(dispatcher(('american', 'https://www.redecanais.click/american-pie-a-1a-vez-e-'
+                                  'inesquecivel-dublado-1999-1080p_a9a0d5c90.html')))

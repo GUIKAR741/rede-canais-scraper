@@ -9,7 +9,7 @@ from pprint import pprint
 from bs4 import BeautifulSoup as Bs
 from requests import get
 
-from funcs import sanitizestring, timeit, tira_num
+from funcs import timeit, tira_num
 from pega_link_req import dispatcher
 
 
@@ -42,9 +42,9 @@ def percorre_lista(pagina: int = 1, lst: list = None, func=cria_link_filme) -> i
     filmes = page.find("ul", {'id': 'pm-grid'}).find_all("li")
     for i in filmes:
         info = i.find('a', {"class": "ellipsis"})
-        titulo = sanitizestring(info.get("title")).strip()
+        titulo = (info.get("title")).strip()
         link = info.get("href")
-        imagem = i.find('img').get('data-echo')
+        imagem = link_base[:-1] + i.find('img').get('data-echo')
         lst.append(tupla(titulo, link_base + link[2:], imagem))
     return int(page.find("ul", {'class': 'pagination'}).find_all('a')[-2].text)
 
@@ -78,16 +78,16 @@ def salva_lista(func=cria_link_filme) -> list:
 def scraper_rede(func=cria_link_filme, nome='filmes'):
     """Percorre as paginas e salva no arquivo."""
     lista = salva_lista(func)
-    di = {"nome": [], "link": [], "imagem": []}
-    [(di['nome'].append(' '.join(i.nome
-                                 .replace("Lista de Episodios", "")
-                                 .replace("Lista de Episodio", "")
+    di = []
+    # di = {"nome": [], "link": [], "imagem": []}
+    [di.append({'nome': ' '.join(i.nome
+                                 .replace(" - Lista de Epis\u00f3dios", "")
+                                 .replace(" - Lista de Epis\u00f3dio", "")
                                  .strip()
                                  .split()
-                                 )
-                        ),
-      di['link'].append(i.link.replace(',', '%2C')),
-      di['imagem'].append(i.imagem.replace(',', '%2C')))
+                                 ),
+                'link': i.link.replace(',', '%2C'),
+                'imagem': i.imagem.replace(',', '%2C')})
      for i in sorted(lista, key=lambda litem: litem.nome)]
     salvar_arq(di, nome)
 
@@ -108,14 +108,14 @@ def env_parse(func, fila, lista):
 def link_parse(arq: str, tam_pool: int = 10):
     """Pegar links."""
     arquivo = ler_arq(arq)
-    nome, link, imagem = [*arquivo.keys()][:3]
-    arquivo = list(zip(arquivo[nome], arquivo[link], arquivo[imagem]))
+    arquivo = arquivo[:1]
     print("Total:", len(arquivo))
     fila = [(arquivo[i], i) for i in range(len(arquivo))]
     lis = [None for i in range(len(arquivo))]
-    meupool = get_pool(tam_pool, dispatcher, fila, lis)
-    [i.start() for i in meupool]
-    [i.join() for i in meupool]
+    env_parse(dispatcher, fila, lis)
+    # meupool = get_pool(tam_pool, dispatcher, fila, lis)
+    # [i.start() for i in meupool]
+    # [i.join() for i in meupool]
 #     {"nome": [
 #     "American Dad Dublado Legendado"
 # ],"link": [
@@ -128,6 +128,7 @@ def link_parse(arq: str, tam_pool: int = 10):
     # espera.wait()
     di = {"nome": [], "link": [], "imagem": [], 'assistir': []}
     # lis = espera.get()
+    print(lis)
     print("total fim:", len(lis))
     [(di['nome'].append(i[0]),
       di['link'].append(i[1]),
@@ -171,7 +172,7 @@ def gera_m3u(arq: str):
                         if val:
                             m3u += '#EXTINF:-1 tvg-id="' + nome + '" tvg-name="' \
                                    + nome + '" logo="' + df['imagem'][i] + '",' + \
-                                   nome + ' ' + '0' * (tam_str-len(str(tam)))+str(tam) + ' ' + \
+                                   nome + ' ' + '0' * (tam_str - len(str(tam))) + str(tam) + ' ' + \
                                    ' '.join(tira_num(chave)
                                             .replace('Episodio', ' ')
                                             .split()) + ' ' + key + '\n'
@@ -183,22 +184,20 @@ def gera_m3u(arq: str):
 
 
 with timeit():
-    link_base = "https://www.redecanais.click/"
+    link_base = "https://redecanais.bz/"
     pasta = "json"
     tupla = namedtuple("molde", "nome link imagem")
     pipeline = [
-        # (cria_link_desenhos, "desenhos")
-        # (cria_link_animes, "animes"),
-        # (cria_link_serie, "series")
-        # (cria_link_filme, "filmes")
+        (cria_link_desenhos, "desenhos"),
+        (cria_link_animes, "animes"),
+        (cria_link_serie, "series"),
+        (cria_link_filme, "filmes"),
     ]
     # [scraper_rede(*i) for i in pipeline]
-    pipeline = {
-        # ('desenhos', 10)
+    pipeline = [
+        ('desenhos', 1),
         # ('animes',)
-        ('series',)
+        # ('series',)
         # ('filmes', 30)
-    }
-    # [link_parse(*i) for i in pipeline]
-    print(dispatcher(('american', 'https://www.redecanais.click/american-pie-a-1a-vez-e-'
-                                  'inesquecivel-dublado-1999-1080p_a9a0d5c90.html')))
+    ]
+    [link_parse(*i) for i in pipeline]

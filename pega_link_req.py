@@ -37,7 +37,7 @@ def parse_bs(texto: str) -> Bs:
 
 
 def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
-                  frame: bool = False) -> tuple or bool:
+                  frame: bool = False, link_ref: str = "") -> tuple or bool:
     """Pega o link para assistir da pagina."""
     def req_ses_get(link: str, headers: dict = None) -> Response:
         if headers is None:
@@ -79,25 +79,28 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
             req_get = req_ses_get(link_solve)
             if '404 - Arquivo ou diretório não encontrado.'.lower() in req_get.text.lower():
                 return pega_link_req(link_tupla=link_tupla,
-                                     retorno=retorno, repeticoes=(repeticoes+1), frame=frame)
+                                     retorno=retorno, repeticoes=(repeticoes + 1), frame=frame)
             if req_get.url != link_solve:
                 return False
+            header['Referer'] = req_get.url
             ifra = parse_bs(req_get.content).find('iframe', {'name': 'Player'})
             if ifra:
                 prox = ifra.get('src').replace('hhttps://', 'https://')
             else:
                 return False
         else:
+            header['Referer'] = link_ref
             prox = link_solve
         # abre o iframe
-        req_get = req_ses_get(prox)
+        req_get = req_ses_get(BASE + prox, header)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_get.text.lower():
             return pega_link_req(link_tupla=link_tupla, retorno=retorno,
-                                 repeticoes=(repeticoes+1), frame=frame)
+                                 repeticoes=(repeticoes + 1), frame=frame)
         # req_get = ses.get(prox)
         dat = parse_bs(req_get.content)
         # pega o valor do form dentro do iframe
         d['data'] = dat.find('input').get('value')
+        print('get2')
         # pega o link para madar os dados do form
         prox = "https:" + dat.find('form').get('action') if not \
             ('https' in dat.find('form').get('action')) else dat.find('form').get('action')
@@ -108,7 +111,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
         req_post = req_ses_post(prox, data=d, headers=header)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_post.text.lower():
             return pega_link_req(link_tupla=link_tupla, retorno=retorno,
-                                 repeticoes=(repeticoes+1), frame=frame)
+                                 repeticoes=(repeticoes + 1), frame=frame)
         dat = parse_bs(req_post.content)
         # pega o link para madar os dados do form
         prox = dat.find('form').get('action')
@@ -120,7 +123,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
         req_post = req_ses_post(prox, data=d, headers=header)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_post.text.lower():
             return pega_link_req(link_tupla=link_tupla, retorno=retorno,
-                                 repeticoes=(repeticoes+1), frame=frame)
+                                 repeticoes=(repeticoes + 1), frame=frame)
         # Seta pagina atual
         header['Referer'] = req_post.url
         # monta url final
@@ -130,7 +133,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
         req_get = req_ses_get(link_fim, headers=header)
         if '404 - Arquivo ou diretório não encontrado.'.lower() in req_get.text.lower():
             return pega_link_req(link_tupla=link_tupla, retorno=retorno,
-                                 repeticoes=(repeticoes+1), frame=frame)
+                                 repeticoes=(repeticoes + 1), frame=frame)
         # pega o link do video
         dat = parse_bs(req_get.content)
         link_do_video = dat.find('source').get('src')
@@ -142,7 +145,7 @@ def pega_link_req(link_tupla: tuple, retorno: bool = True, repeticoes: int = 1,
         print(red, "pega_link_req:", link_tupla,
               '\n', e.__str__(), type(e), reset)
         return pega_link_req(link_tupla=link_tupla, retorno=retorno,
-                             repeticoes=(repeticoes+1), frame=frame)
+                             repeticoes=(repeticoes + 1), frame=frame)
 
 
 def get_pool(n_th: int, func, fila, lista: list):
@@ -158,11 +161,11 @@ def env_alt(func, fila, lista):
         lista[num] = func(ep, tup)
 
 
-def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
+def pega_eps(link_dict: dict, conteudo: bytes = b'') -> tuple or bool:
     """Pega os episodios da pagina e passa para pegar o link."""
     try:
         if conteudo == b'':
-            link_rede = link_tupla[1]
+            link_rede = link_dict['link']
             requisicao_get = req_link(link_rede)
             if requisicao_get.status_code != 200 and requisicao_get.url != link_rede:
                 return False
@@ -173,7 +176,6 @@ def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
         desc = req.find('div', {'itemprop': 'description'}) \
             if req.find('div', {'itemprop': 'description'}) is not None \
             else req.find(class_=comp("description"))
-        base = "https://www.redecanais.click"
         des = desc.find()
         episodios = []
         # pegar itens
@@ -190,12 +192,12 @@ def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
                                         .strip().split())
                 a_tag = parse_pag.find_all('a')
                 if len(a_tag) == 1:
-                    str_link = tira_barra(base + a_tag[0].get('href').replace("%20", ' ')
+                    str_link = tira_barra(BASE + a_tag[0].get('href').replace("%20", ' ')
                                           .replace('redi/', '').replace('[', '').split()[0])
                 else:
                     str_link = {
                         k.text.strip():
-                            tira_barra(base + k.get('href').replace("%20", ' ')
+                            tira_barra(BASE + k.get('href').replace("%20", ' ')
                                        .replace('redi/', '')
                                        .replace('[', '')
                                        .split()[0])
@@ -203,17 +205,18 @@ def pega_eps(link_tupla: tuple, conteudo: bytes = b'') -> tuple or bool:
                     }
                 ep = {str_episodio: str_link}
                 episodios.append(ep)
-        [fila.append((episodios[i], link_tupla, i)) for i in range(len(episodios))]
+        [fila.append((episodios[i], link_dict, i)) for i in range(len(episodios))]
         li_ep = [None for i in range(len(episodios))]
         # print(fila)
         # [fila.put('Kill') for i in range(5)]
-        mypool = get_pool(5, altera_link, fila, li_ep)
-        [i.start() for i in mypool]
-        [i.join() for i in mypool]
+        env_alt(altera_link, fila, li_ep)
+        # mypool = get_pool(5, altera_link, fila, li_ep)
+        # [i.start() for i in mypool]
+        # [i.join() for i in mypool]
         # pprint(link_tupla[0])
-        return (*link_tupla, episodios)
+        return (link_dict, episodios)
     except Exception as e:
-        print(red, "pega_eps:", link_tupla, '\n', e.__str__(),
+        print(red, "pega_eps:", link_dict, '\n', e.__str__(),
               type(e), e.with_traceback(e.__traceback__), reset)
 
 
@@ -224,8 +227,9 @@ def altera_link(i: dict, tupla: tuple):
         chave = [*i.keys()][0]
         tipo_link = type(i.get(*i.keys()))
         if tipo_link == str:
-            ret = pega_link_req((0, i.get(chave)), retorno=False) if not ('.jpg' in i.get(chave) or
-                                                                          'href' in i.get(chave)) \
+            ret = pega_link_req(
+                (0, i.get(chave)),
+                retorno=False) if not ('.jpg' in i.get(chave) or 'href' in i.get(chave)) \
                 else False
             link = ret[-1] if ret else ret
             i[chave] = link
@@ -234,8 +238,9 @@ def altera_link(i: dict, tupla: tuple):
         elif tipo_link == dict:
             alt = {}
             for ep, li in i[chave].items():
-                ret = pega_link_req((0, li), retorno=False) if not ('.jpg' in li or
-                                                                    '<a' in li) else False
+                ret = pega_link_req(
+                    (0, li), retorno=False) if not ('.jpg' in li or '<a' in li) \
+                    else False
                 alt[ep] = ret[-1] if ret else ret
                 # cont = cont + 1
                 # print(cont, tupla[0], ep)
@@ -245,29 +250,30 @@ def altera_link(i: dict, tupla: tuple):
         print(red, 'Altera Link:', i, '\n', e.__str__(), type(e), reset)
 
 
-def dispatcher(tupla_link: tuple):
+def dispatcher(dict_link: dict):
     """Separa para onde cada tupla deve ir."""
-    link = tupla_link[1]
+    link = dict_link['link']
     get_req = req_link(link)
     global cont
     if get_req.status_code == 200 and get_req.url == link:
         req = parse_bs(get_req.content)
         iframe = req.find('iframe', {'name': 'Player'})
         if iframe is not None:
-            lin = pega_link_req(link_tupla=(tupla_link[0], iframe.get("src")
+            lin = pega_link_req(link_tupla=(dict_link['nome'], iframe.get("src")
                                             .replace('hhttps://', 'https://')),
-                                retorno=True, frame=True)
+                                retorno=True, frame=True, link_ref=link)
             global cont
             cont = cont + 1
-            print(cont, tupla_link[0], tupla_link[1])
-            return (*tupla_link, lin[-1]) if lin else False
+            print(cont, dict_link['nome'], dict_link['link'])
+            return (dict_link, lin[-1]) if lin else False
         else:
-            eps = pega_eps(tupla_link, conteudo=get_req.content)
+            eps = pega_eps(dict_link, conteudo=get_req.content)
             cont += 1
-            print(cont, tupla_link[0], tupla_link[1])
+            print(cont, dict_link['nome'], dict_link['link'])
             return eps
 
 
 red = "\033[1;31m"
 reset = "\033[0;0m"
 cont = 0
+BASE = "https://redecanais.bz"
